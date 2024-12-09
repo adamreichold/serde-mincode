@@ -16,10 +16,10 @@ impl<'de> Decoder<'de> {
 macro_rules! impl_decode {
     ($method:ident($ty:ty)) => {
         fn $method(&mut self) -> Result<$ty, Error> {
-            let (bytes, rest) = self
-                .buf
-                .split_at_checked(size_of::<$ty>())
-                .ok_or(Error::MissingData)?;
+            let (bytes, rest) = self.buf.split_at_checked(size_of::<$ty>()).ok_or_else(|| {
+                cold();
+                Error::MissingData
+            })?;
             self.buf = rest;
 
             let value = <$ty>::from_ne_bytes(bytes.try_into().unwrap());
@@ -48,10 +48,10 @@ impl Decoder<'_> {
     fn decode_bytes(&mut self) -> Result<&[u8], Error> {
         let len = self.decode_u32()?;
 
-        let (bytes, rest) = self
-            .buf
-            .split_at_checked(len as usize)
-            .ok_or(Error::MissingData)?;
+        let (bytes, rest) = self.buf.split_at_checked(len as usize).ok_or_else(|| {
+            cold();
+            Error::MissingData
+        })?;
         self.buf = rest;
 
         Ok(bytes)
@@ -117,7 +117,10 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
         match self.decode_u8()? {
             0 => visitor.visit_bool(false),
             1 => visitor.visit_bool(true),
-            _ => Err(Error::InvalidBool),
+            _ => {
+                cold();
+                Err(Error::InvalidBool)
+            }
         }
     }
 
@@ -127,7 +130,10 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bits = self.decode_u32()?;
 
-        let value = char::from_u32(bits).ok_or(Error::InvalidChar)?;
+        let value = char::from_u32(bits).ok_or_else(|| {
+            cold();
+            Error::InvalidChar
+        })?;
 
         visitor.visit_char(value)
     }
@@ -156,7 +162,10 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        let value = from_utf8(bytes).map_err(|_err| Error::InvalidStr)?;
+        let value = from_utf8(bytes).map_err(|_err| {
+            cold();
+            Error::InvalidStr
+        })?;
 
         visitor.visit_str(value)
     }
@@ -167,7 +176,10 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        let value = from_utf8(bytes).map_err(|_err| Error::InvalidStr)?;
+        let value = from_utf8(bytes).map_err(|_err| {
+            cold();
+            Error::InvalidStr
+        })?;
 
         visitor.visit_string(value.to_owned())
     }
@@ -208,7 +220,10 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
         match self.decode_u8()? {
             0 => visitor.visit_none(),
             1 => visitor.visit_some(self),
-            _ => Err(Error::InvalidOption),
+            _ => {
+                cold();
+                Err(Error::InvalidOption)
+            }
         }
     }
 
@@ -391,3 +406,7 @@ impl<'de> serde::de::VariantAccess<'de> for &mut Decoder<'de> {
         serde::de::Deserializer::deserialize_tuple(self, fields.len(), visitor)
     }
 }
+
+#[cold]
+#[inline(always)]
+fn cold() {}
