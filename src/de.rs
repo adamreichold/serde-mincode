@@ -15,10 +15,10 @@ impl<'de> Decoder<'de> {
 
 macro_rules! impl_decode {
     ($method:ident($ty:ty)) => {
-        fn $method(&mut self) -> Result<$ty, Error> {
+        fn $method(&mut self) -> Result<$ty, Box<Error>> {
             let (bytes, rest) = self.buf.split_at_checked(size_of::<$ty>()).ok_or_else(|| {
                 cold();
-                Error::MissingData
+                Box::new(Error::MissingData)
             })?;
             self.buf = rest;
 
@@ -45,12 +45,12 @@ impl Decoder<'_> {
     impl_decode!(decode_f32(f32));
     impl_decode!(decode_f64(f64));
 
-    fn decode_bytes(&mut self) -> Result<&[u8], Error> {
+    fn decode_bytes(&mut self) -> Result<&[u8], Box<Error>> {
         let len = self.decode_u32()?;
 
         let (bytes, rest) = self.buf.split_at_checked(len as usize).ok_or_else(|| {
             cold();
-            Error::MissingData
+            Box::new(Error::MissingData)
         })?;
         self.buf = rest;
 
@@ -72,27 +72,30 @@ macro_rules! impl_deserialize {
 }
 
 impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        Err(Error::NotSupported)
+        cold();
+        Err(Box::new(Error::NotSupported))
     }
 
     fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        Err(Error::NotSupported)
+        cold();
+        Err(Box::new(Error::NotSupported))
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        Err(Error::NotSupported)
+        cold();
+        Err(Box::new(Error::NotSupported))
     }
 
     impl_deserialize!(deserialize_i8(i8): decode_i8 => visit_i8);
@@ -119,7 +122,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
             1 => visitor.visit_bool(true),
             _ => {
                 cold();
-                Err(Error::InvalidBool)
+                Err(Box::new(Error::InvalidBool))
             }
         }
     }
@@ -132,7 +135,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
 
         let value = char::from_u32(bits).ok_or_else(|| {
             cold();
-            Error::InvalidChar
+            Box::new(Error::InvalidChar)
         })?;
 
         visitor.visit_char(value)
@@ -178,7 +181,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
 
         let value = from_utf8(bytes).map_err(|_err| {
             cold();
-            Error::InvalidStr
+            Box::new(Error::InvalidStr)
         })?;
 
         visitor.visit_string(value.to_owned())
@@ -222,7 +225,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
             1 => visitor.visit_some(self),
             _ => {
                 cold();
-                Err(Error::InvalidOption)
+                Err(Box::new(Error::InvalidOption))
             }
         }
     }
@@ -302,7 +305,7 @@ struct LimitedDecoder<'a, 'de> {
 }
 
 impl<'de> serde::de::SeqAccess<'de> for LimitedDecoder<'_, 'de> {
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
@@ -326,7 +329,7 @@ impl<'de> serde::de::SeqAccess<'de> for LimitedDecoder<'_, 'de> {
 }
 
 impl<'de> serde::de::MapAccess<'de> for LimitedDecoder<'_, 'de> {
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
     where
@@ -357,7 +360,7 @@ impl<'de> serde::de::MapAccess<'de> for LimitedDecoder<'_, 'de> {
 }
 
 impl<'de> serde::de::EnumAccess<'de> for &mut Decoder<'de> {
-    type Error = Error;
+    type Error = Box<Error>;
     type Variant = Self;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
@@ -366,7 +369,8 @@ impl<'de> serde::de::EnumAccess<'de> for &mut Decoder<'de> {
     {
         let variant_index = self.decode_u32()?;
 
-        let deserializer = serde::de::IntoDeserializer::into_deserializer(variant_index);
+        let deserializer =
+            serde::de::IntoDeserializer::<Self::Error>::into_deserializer(variant_index);
 
         let value = seed.deserialize(deserializer)?;
 
@@ -375,7 +379,7 @@ impl<'de> serde::de::EnumAccess<'de> for &mut Decoder<'de> {
 }
 
 impl<'de> serde::de::VariantAccess<'de> for &mut Decoder<'de> {
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn unit_variant(self) -> Result<(), Self::Error> {
         Ok(())

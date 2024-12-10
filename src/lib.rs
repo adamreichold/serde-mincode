@@ -7,7 +7,7 @@ use std::fmt;
 use de::Decoder;
 use ser::Encoder;
 
-pub fn serialize<T>(value: &T) -> Result<Vec<u8>, Error>
+pub fn serialize<T>(value: &T) -> Result<Vec<u8>, Box<Error>>
 where
     T: serde::ser::Serialize,
 {
@@ -16,7 +16,7 @@ where
     Ok(buf)
 }
 
-pub fn serialize_into<T>(buf: &mut Vec<u8>, value: &T) -> Result<(), Error>
+pub fn serialize_into<T>(buf: &mut Vec<u8>, value: &T) -> Result<(), Box<Error>>
 where
     T: serde::ser::Serialize,
 {
@@ -24,7 +24,7 @@ where
     Ok(())
 }
 
-pub fn deserialize<'de, T>(buf: &'de [u8]) -> Result<T, Error>
+pub fn deserialize<'de, T>(buf: &'de [u8]) -> Result<T, Box<Error>>
 where
     T: serde::de::Deserialize<'de>,
 {
@@ -58,20 +58,20 @@ impl fmt::Display for Error {
 
 impl StdError for Error {}
 
-impl serde::ser::Error for Error {
+impl serde::ser::Error for Box<Error> {
     fn custom<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
-        Self::Custom(msg.to_string())
+        Box::new(Error::Custom(msg.to_string()))
     }
 }
 
-impl serde::de::Error for Error {
+impl serde::de::Error for Box<Error> {
     fn custom<T>(msg: T) -> Self
     where
         T: fmt::Display,
     {
-        Self::Custom(msg.to_string())
+        Box::new(Error::Custom(msg.to_string()))
     }
 }

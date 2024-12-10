@@ -15,7 +15,7 @@ impl<'a> Encoder<'a> {
         }
     }
 
-    fn serialize_len(self, len: usize) -> Result<Self, Error> {
+    fn serialize_len(self, len: usize) -> Result<Self, Box<Error>> {
         serde::ser::Serializer::serialize_u32(self, len.try_into().expect("Excessive length"))
     }
 }
@@ -31,7 +31,7 @@ macro_rules! impl_serialize {
 
 impl serde::ser::Serializer for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     type SerializeSeq = Self;
     type SerializeTuple = Self;
@@ -187,7 +187,7 @@ impl serde::ser::Serializer for Encoder<'_> {
 
 impl serde::ser::SerializeSeq for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -204,7 +204,7 @@ impl serde::ser::SerializeSeq for Encoder<'_> {
 
 impl serde::ser::SerializeTuple for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -221,7 +221,7 @@ impl serde::ser::SerializeTuple for Encoder<'_> {
 
 impl serde::ser::SerializeTupleStruct for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -238,7 +238,7 @@ impl serde::ser::SerializeTupleStruct for Encoder<'_> {
 
 impl serde::ser::SerializeTupleVariant for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -255,7 +255,7 @@ impl serde::ser::SerializeTupleVariant for Encoder<'_> {
 
 impl serde::ser::SerializeMap for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_key<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
@@ -280,7 +280,7 @@ impl serde::ser::SerializeMap for Encoder<'_> {
 
 impl serde::ser::SerializeStruct for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<(), Self::Error>
     where
@@ -297,7 +297,7 @@ impl serde::ser::SerializeStruct for Encoder<'_> {
 
 impl serde::ser::SerializeStructVariant for Encoder<'_> {
     type Ok = Self;
-    type Error = Error;
+    type Error = Box<Error>;
 
     fn serialize_field<T>(&mut self, _key: &'static str, value: &T) -> Result<(), Self::Error>
     where
