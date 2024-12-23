@@ -3,6 +3,7 @@ mod ser;
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::marker::PhantomData;
 
 use de::Decoder;
 use ser::Encoder;
@@ -28,7 +29,14 @@ pub fn deserialize<'de, T>(buf: &'de [u8]) -> Result<T, Box<Error>>
 where
     T: serde::de::Deserialize<'de>,
 {
-    T::deserialize(&mut Decoder::new(buf))
+    deserialize_seed(buf, PhantomData)
+}
+
+pub fn deserialize_seed<'de, T>(buf: &'de [u8], seed: T) -> Result<T::Value, Box<Error>>
+where
+    T: serde::de::DeserializeSeed<'de>,
+{
+    seed.deserialize(&mut Decoder::new(buf))
 }
 
 #[derive(Debug)]
