@@ -66,7 +66,15 @@ impl fmt::Display for Error {
 
 impl StdError for Error {}
 
+impl<T> From<Error> for Result<T, Box<Error>> {
+    #[cold]
+    fn from(err: Error) -> Self {
+        Err(Box::new(err))
+    }
+}
+
 impl serde::ser::Error for Box<Error> {
+    #[cold]
     fn custom<T>(msg: T) -> Self
     where
         T: fmt::Display,
@@ -76,6 +84,7 @@ impl serde::ser::Error for Box<Error> {
 }
 
 impl serde::de::Error for Box<Error> {
+    #[cold]
     fn custom<T>(msg: T) -> Self
     where
         T: fmt::Display,

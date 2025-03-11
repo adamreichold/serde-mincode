@@ -14,12 +14,11 @@ impl<'de> Decoder<'de> {
 }
 
 macro_rules! impl_decode {
-    ($method:ident($ty:ty)) => {
+    ($method:ident: $ty:ty) => {
         fn $method(&mut self) -> Result<$ty, Box<Error>> {
-            let (bytes, rest) = self.buf.split_at_checked(size_of::<$ty>()).ok_or_else(|| {
-                cold();
-                Box::new(Error::MissingData)
-            })?;
+            let Some((bytes, rest)) = self.buf.split_at_checked(size_of::<$ty>()) else {
+                return Error::MissingData.into();
+            };
             self.buf = rest;
 
             let value = <$ty>::from_ne_bytes(bytes.try_into().unwrap());
@@ -30,28 +29,27 @@ macro_rules! impl_decode {
 }
 
 impl Decoder<'_> {
-    impl_decode!(decode_i8(i8));
-    impl_decode!(decode_i16(i16));
-    impl_decode!(decode_i32(i32));
-    impl_decode!(decode_i64(i64));
-    impl_decode!(decode_i128(i128));
+    impl_decode!(decode_i8: i8);
+    impl_decode!(decode_i16: i16);
+    impl_decode!(decode_i32: i32);
+    impl_decode!(decode_i64: i64);
+    impl_decode!(decode_i128: i128);
 
-    impl_decode!(decode_u8(u8));
-    impl_decode!(decode_u16(u16));
-    impl_decode!(decode_u32(u32));
-    impl_decode!(decode_u64(u64));
-    impl_decode!(decode_u128(u128));
+    impl_decode!(decode_u8: u8);
+    impl_decode!(decode_u16: u16);
+    impl_decode!(decode_u32: u32);
+    impl_decode!(decode_u64: u64);
+    impl_decode!(decode_u128: u128);
 
-    impl_decode!(decode_f32(f32));
-    impl_decode!(decode_f64(f64));
+    impl_decode!(decode_f32: f32);
+    impl_decode!(decode_f64: f64);
 
     fn decode_bytes(&mut self) -> Result<&[u8], Box<Error>> {
         let len = self.decode_u32()?;
 
-        let (bytes, rest) = self.buf.split_at_checked(len as usize).ok_or_else(|| {
-            cold();
-            Box::new(Error::MissingData)
-        })?;
+        let Some((bytes, rest)) = self.buf.split_at_checked(len as usize) else {
+            return Error::MissingData.into();
+        };
         self.buf = rest;
 
         Ok(bytes)
@@ -59,7 +57,7 @@ impl Decoder<'_> {
 }
 
 macro_rules! impl_deserialize {
-    ($method:ident($ty:ty): $decode:ident => $visit:ident) => {
+    ($method:ident: $decode:ident => $visit:ident) => {
         fn $method<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where
             V: serde::de::Visitor<'de>,
@@ -78,40 +76,37 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        cold();
-        Err(Box::new(Error::NotSupported))
+        Error::NotSupported.into()
     }
 
     fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        cold();
-        Err(Box::new(Error::NotSupported))
+        Error::NotSupported.into()
     }
 
     fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        cold();
-        Err(Box::new(Error::NotSupported))
+        Error::NotSupported.into()
     }
 
-    impl_deserialize!(deserialize_i8(i8): decode_i8 => visit_i8);
-    impl_deserialize!(deserialize_i16(i16): decode_i16 => visit_i16);
-    impl_deserialize!(deserialize_i32(i32): decode_i32 => visit_i32);
-    impl_deserialize!(deserialize_i64(i64): decode_i64 => visit_i64);
-    impl_deserialize!(deserialize_i128(i128): decode_i128 => visit_i128);
+    impl_deserialize!(deserialize_i8: decode_i8 => visit_i8);
+    impl_deserialize!(deserialize_i16: decode_i16 => visit_i16);
+    impl_deserialize!(deserialize_i32: decode_i32 => visit_i32);
+    impl_deserialize!(deserialize_i64: decode_i64 => visit_i64);
+    impl_deserialize!(deserialize_i128: decode_i128 => visit_i128);
 
-    impl_deserialize!(deserialize_u8(u8): decode_u8 => visit_u8);
-    impl_deserialize!(deserialize_u16(u16): decode_u16 => visit_u16);
-    impl_deserialize!(deserialize_u32(u32): decode_u32 => visit_u32);
-    impl_deserialize!(deserialize_u64(u64): decode_u64 => visit_u64);
-    impl_deserialize!(deserialize_u128(u128): decode_u128 => visit_u128);
+    impl_deserialize!(deserialize_u8: decode_u8 => visit_u8);
+    impl_deserialize!(deserialize_u16: decode_u16 => visit_u16);
+    impl_deserialize!(deserialize_u32: decode_u32 => visit_u32);
+    impl_deserialize!(deserialize_u64: decode_u64 => visit_u64);
+    impl_deserialize!(deserialize_u128: decode_u128 => visit_u128);
 
-    impl_deserialize!(deserialize_f32(f32): decode_f32 => visit_f32);
-    impl_deserialize!(deserialize_f64(f64): decode_f64 => visit_f64);
+    impl_deserialize!(deserialize_f32: decode_f32 => visit_f32);
+    impl_deserialize!(deserialize_f64: decode_f64 => visit_f64);
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -120,10 +115,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
         match self.decode_u8()? {
             0 => visitor.visit_bool(false),
             1 => visitor.visit_bool(true),
-            _ => {
-                cold();
-                Err(Box::new(Error::InvalidBool))
-            }
+            _ => Error::InvalidBool.into(),
         }
     }
 
@@ -133,10 +125,9 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bits = self.decode_u32()?;
 
-        let value = char::from_u32(bits).ok_or_else(|| {
-            cold();
-            Box::new(Error::InvalidChar)
-        })?;
+        let Some(value) = char::from_u32(bits) else {
+            return Error::InvalidChar.into();
+        };
 
         visitor.visit_char(value)
     }
@@ -165,10 +156,9 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        let value = from_utf8(bytes).map_err(|_err| {
-            cold();
-            Error::InvalidStr
-        })?;
+        let Ok(value) = from_utf8(bytes) else {
+            return Error::InvalidStr.into();
+        };
 
         visitor.visit_str(value)
     }
@@ -179,10 +169,9 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        let value = from_utf8(bytes).map_err(|_err| {
-            cold();
-            Box::new(Error::InvalidStr)
-        })?;
+        let Ok(value) = from_utf8(bytes) else {
+            return Error::InvalidStr.into();
+        };
 
         visitor.visit_string(value.to_owned())
     }
@@ -223,10 +212,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
         match self.decode_u8()? {
             0 => visitor.visit_none(),
             1 => visitor.visit_some(self),
-            _ => {
-                cold();
-                Err(Box::new(Error::InvalidOption))
-            }
+            _ => Error::InvalidOption.into(),
         }
     }
 
@@ -410,7 +396,3 @@ impl<'de> serde::de::VariantAccess<'de> for &mut Decoder<'de> {
         serde::de::Deserializer::deserialize_tuple(self, fields.len(), visitor)
     }
 }
-
-#[cold]
-#[inline(always)]
-fn cold() {}
