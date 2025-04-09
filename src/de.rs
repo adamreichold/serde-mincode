@@ -28,7 +28,7 @@ macro_rules! impl_decode {
     };
 }
 
-impl Decoder<'_> {
+impl<'de> Decoder<'de> {
     impl_decode!(decode_i8: i8);
     impl_decode!(decode_i16: i16);
     impl_decode!(decode_i32: i32);
@@ -44,7 +44,7 @@ impl Decoder<'_> {
     impl_decode!(decode_f32: f32);
     impl_decode!(decode_f64: f64);
 
-    fn decode_bytes(&mut self) -> Result<&[u8], Box<Error>> {
+    fn decode_bytes(&mut self) -> Result<&'de [u8], Box<Error>> {
         let len = self.decode_u32()?;
 
         let Some((bytes, rest)) = self.buf.split_at_checked(len as usize) else {
@@ -138,7 +138,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        visitor.visit_bytes(bytes)
+        visitor.visit_borrowed_bytes(bytes)
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -160,7 +160,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
             return Error::InvalidStr.into();
         };
 
-        visitor.visit_str(value)
+        visitor.visit_borrowed_str(value)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
