@@ -147,7 +147,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
     {
         let bytes = self.decode_bytes()?;
 
-        visitor.visit_byte_buf(bytes.to_owned())
+        visitor.visit_bytes(bytes)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -173,7 +173,7 @@ impl<'de> serde::de::Deserializer<'de> for &mut Decoder<'de> {
             return Error::InvalidStr.into();
         };
 
-        visitor.visit_string(value.to_owned())
+        visitor.visit_str(value)
     }
 
     fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
